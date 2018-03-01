@@ -1,10 +1,13 @@
 from display import *
 from matrix import *
 from draw import *
+import sys
+
+from math import cos, pi, sin
 
 class ParseState(object):
-    def __init__(self, line_index, points, transform, screen, color):
-        self.line_index = line_index
+    def __init__(self, index, points, transform, screen, color):
+        self.index = index
         self.points = points
         self.transform = transform
         self.screen = screen
@@ -51,41 +54,46 @@ def parse_file( fname, points, transform, screen, color ):
 def process_batch(lines, state):
     CMDS = ('line', 'ident', 'scale', 'move', 'rotate', 'apply', 'display', 'save')
 
+    #print('[DEBUG 1]', state.index)
     index = state.index
     line = lines[index].strip()
     if line not in CMDS:
         raise ValueError("%s is an invalid command" % line)
 
+    orig_line = line
     state.index += 1
+    #print('[DEBUG 2]', state.index)
     line = lines[state.index].strip()
     
-    if line == 'line':
+    if orig_line == 'line':
         process_line(line, state)
-    elif line == 'ident':
-        process_ident(line, points, transform, screen, color)
-    elif line == 'scale':
+    elif orig_line == 'ident':
+        process_ident(line, state)
+    elif orig_line == 'scale':
         process_scale(line, state)
-    elif line == 'move':
+    elif orig_line == 'move':
         process_move(line, state)
-    elif line == 'rotate':
+    elif orig_line == 'rotate':
         process_rotate(line, state)
-    elif line == 'apply':
+    elif orig_line == 'apply':
         process_apply(line, state)
-    elif line == 'display':
+    elif orig_line == 'display':
         process_display(line, state)
-    elif line == 'save':
+    elif orig_line == 'save':
         process_save(line, state)
 
 def process_line(line, state):
-    x0, y0, z0, x1, y1, z1 = [int(coord) for coord in line.strip().split(' ')]
+    #print('[DEBUG 3]', state.index)
+    x0, y0, z0, x1, y1, z1 = [float(coord) for coord in line.strip().split(' ')]
     add_edge(state.points, x0, y0, z0, x1, y1, z1)
     state.index += 1
+    #print('[DEBUG 4]', state.index)
 
 def process_ident(line, state):
     ident(state.transform)
 
 def process_scale(line, state):
-    x, y, z = [int(scl) for scl in line.strip().split(' ')]
+    x, y, z = [float(scl) for scl in line.strip().split(' ')]
     sclmat = new_matrix(rows=4, cols=4)
     ident(sclmat)
     sclmat[0][0] = x
@@ -95,7 +103,7 @@ def process_scale(line, state):
     state.index += 1
 
 def process_move(line, state):
-    tx, ty, tz = [int(t) for t in line.strip().split(' ')]
+    tx, ty, tz = [float(t) for t in line.strip().split(' ')]
     tmat = new_matrix(rows=4, cols=4)
     ident(tmat)
     tmat[3][0] = tx
@@ -106,7 +114,7 @@ def process_move(line, state):
 
 def process_rotate(line, state):
     axis, theta = line.strip().split(' ')
-    theta = int(theta)
+    theta = float(theta)
 
     rotmat = new_matrix(rows=4, cols=4)
     ident(rotmat)
@@ -133,11 +141,26 @@ def process_apply(line, state):
     matrix_mult(state.transform, state.points)
 
 def process_display(line, state):
+    convert_to_ints(state.points)
     scn = new_screen()
     draw_lines(state.points, scn, color=[255, 0, 0])
     display(scn)
 
 def process_save(line, state):
+    fname = line.strip()
+    convert_to_ints(state.points)
     scn = new_screen()
     draw_lines(state.points, scn, color=[255, 0, 0])
-    save_extension(scn, "output.png")
+    save_extension(scn, fname)
+    state.index += 1
+
+def convert_to_ints(mat):
+    for c in range(len(mat)):
+        for r in range(len(mat[0])):
+            mat[c][r] = int(mat[c][r])
+
+def cos_deg(degrees):
+    return cos(degrees * pi / 180)
+
+def sin_deg(degrees):
+    return sin(degrees * pi / 180)
