@@ -64,21 +64,80 @@ def process_batch(lines, state):
     elif line == 'ident':
         process_ident(line, points, transform, screen, color)
     elif line == 'scale':
-        process_scale(line, points, transform, screen, color)
+        process_scale(line, state)
     elif line == 'move':
-        process_move(line, points, transform, screen, color)
+        process_move(line, state)
     elif line == 'rotate':
-        process_rotate(line, points, transform, screen, color)
+        process_rotate(line, state)
     elif line == 'apply':
-        process_apply(line, points, transform, screen, color)
+        process_apply(line, state)
     elif line == 'display':
-        process_display(line, points, transform, screen, color)
+        process_display(line, state)
     elif line == 'save':
-        process_save(line, points, transform, screen, color)
+        process_save(line, state)
 
+def process_line(line, state):
+    x0, y0, z0, x1, y1, z1 = [int(coord) for coord in line.strip().split(' ')]
+    add_edge(state.points, x0, y0, z0, x1, y1, z1)
     state.index += 1
 
-def process_line(line, points, transform, screen, color):
-    x0, y0, z0, x1, y1, z1 = [int(coord) for coord in line.strip().split(' ')]
-    add_edge(points, x0, y0, z0, x1, y1, z1)
+def process_ident(line, state):
+    ident(state.transform)
 
+def process_scale(line, state):
+    x, y, z = [int(scl) for scl in line.strip().split(' ')]
+    sclmat = new_matrix(rows=4, cols=4)
+    ident(sclmat)
+    sclmat[0][0] = x
+    sclmat[1][1] = y
+    sclmat[2][2] = z
+    matrix_mult(sclmat, state.transform)
+    state.index += 1
+
+def process_move(line, state):
+    tx, ty, tz = [int(t) for t in line.strip().split(' ')]
+    tmat = new_matrix(rows=4, cols=4)
+    ident(tmat)
+    tmat[3][0] = tx
+    tmat[3][1] = ty
+    tmat[3][2] = tz
+    matrix_mult(tmat, state.transform)
+    state.index += 1
+
+def process_rotate(line, state):
+    axis, theta = line.strip().split(' ')
+    theta = int(theta)
+
+    rotmat = new_matrix(rows=4, cols=4)
+    ident(rotmat)
+    if axis == 'x':
+        rotmat[1][1] = cos_deg(theta)
+        rotmat[2][1] = -sin_deg(theta)
+        rotmat[1][2] = sin_deg(theta)
+        rotmat[2][2] = cos_deg(theta)
+    elif axis == 'y':
+        rotmat[0][0] = cos_deg(theta)
+        rotmat[2][0] = -sin_deg(theta)
+        rotmat[0][2] = sin_deg(theta)
+        rotmat[2][2] = cos_deg(theta)
+    elif axis == 'z':
+        rotmat[0][0] = cos_deg(theta)
+        rotmat[1][0] = -sin_deg(theta)
+        rotmat[0][1] = sin_deg(theta)
+        rotmat[1][1] = cos_deg(theta)
+
+    matrix_mult(rotmat, state.transform)
+    state.index += 1
+
+def process_apply(line, state):
+    matrix_mult(state.transform, state.points)
+
+def process_display(line, state):
+    scn = new_screen()
+    draw_lines(state.points, scn, color=[255, 0, 0])
+    display(scn)
+
+def process_save(line, state):
+    scn = new_screen()
+    draw_lines(state.points, scn, color=[255, 0, 0])
+    save_extension(scn, "output.png")
